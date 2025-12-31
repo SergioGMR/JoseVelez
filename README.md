@@ -81,6 +81,16 @@ With Node:
 node dist/index.js
 ```
 
+## Deployment (Dokploy)
+
+This repo ships a Dockerfile for Bun. In Dokploy:
+
+1) Create a new app from this GitHub repo.  
+2) Build uses the included `Dockerfile`.  
+3) Set environment variables: `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, and any optional keys you need.  
+
+Optional: Mount a volume for `~/.cache/discord-music-bot` if you want to persist the `yt-dlp` download.
+
 ## Commands
 
 - `/buscar query:` Search YouTube and select a result.
