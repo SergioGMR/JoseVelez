@@ -8,6 +8,7 @@ A Discord music bot that searches and plays YouTube audio. Built to be stable, p
 - Per-guild queue with control buttons (pause, skip, stop).
 - YouTube Data API search with a non-API fallback when quota runs out.
 - Optional Supabase persistence for queues.
+- Persistent search cache with a 7-day TTL (Supabase).
 - User-facing responses are in Spanish.
 
 ## Requirements
@@ -149,6 +150,44 @@ alter table public.queue_items enable row level security;
 
 create policy "queue_items_bot_access"
 on public.queue_items
+for all
+using (
+  (current_setting('request.headers', true)::json ->> 'x-bot-key') is not null
+  and (select crypt(current_setting('request.headers', true)::json ->> 'x-bot-key', key_hash) = key_hash
+       from public.queue_access
+       where id = 1)
+)
+with check (
+  (current_setting('request.headers', true)::json ->> 'x-bot-key') is not null
+  and (select crypt(current_setting('request.headers', true)::json ->> 'x-bot-key', key_hash) = key_hash
+       from public.queue_access
+       where id = 1)
+);
+```
+
+## Supabase search cache
+
+The search cache stores hashed queries only (no raw query text) and expires entries after 7 days.
+
+```sql
+create table if not exists public.search_cache (
+  query_hash text not null,
+  max_results int not null,
+  results jsonb not null,
+  source text not null,
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now(),
+  expires_at timestamp with time zone not null,
+  last_hit_at timestamp with time zone
+);
+
+create unique index if not exists search_cache_query_hash_max_results
+  on public.search_cache (query_hash, max_results);
+
+alter table public.search_cache enable row level security;
+
+create policy "search_cache_bot_access"
+on public.search_cache
 for all
 using (
   (current_setting('request.headers', true)::json ->> 'x-bot-key') is not null

@@ -7,6 +7,8 @@ import { getPlayDl } from './playdl.js';
 import { ensureYtDlpAvailable, spawnYtDlpStream } from './ytdlp.js';
 import { getYtdl } from './ytdl.js';
 import { addQueueItem, clearQueue, loadQueue, removeQueueItem } from './queue-store.js';
+import { loadSearchCacheEntry, saveSearchCacheEntry } from './search-cache-store.js';
+import { buildSearchCacheKey, hashSearchQuery, normalizeSearchQuery } from './search-cache-utils.js';
 import { extractYouTubeId } from './youtube-utils.js';
 import axios from 'axios';
 import yts from 'yt-search';
@@ -26,10 +28,6 @@ const YTDLP_STREAM_ARGS = [
     '--no-warnings',
     '--no-progress'
 ];
-
-const normalizeQuery = (query: string): string => query.trim().toLowerCase().replace(/\s+/g, ' ');
-
-const buildCacheKey = (query: string, maxResults: number): string => `${normalizeQuery(query)}|${maxResults}`;
 
 const getCachedSearch = (cacheKey: string): YouTubeVideo[] | null => {
     const cached = searchCache.get(cacheKey);
@@ -97,7 +95,7 @@ const logSearchError = (context: string, error: unknown): void => {
         return;
     }
 
-    const status = error.response?.status ?? 'sin estado';
+    const status = error.response?.status ?? 'unknown status';
     const reason = error.response?.data?.error?.errors?.[0]?.reason;
     const message = error.response?.data?.error?.message ?? error.message;
 
@@ -122,138 +120,161 @@ const searchYouTubeFallback = async (query: string, maxResults: number): Promise
         .filter(video => video.id && video.url);
 };
 
-export const searchYouTube = async (query: string, maxResults = 5): Promise<YouTubeVideo[]> => {
-    try {
-        console.log(chalk.yellow(`Searching YouTube: ${query}`));
+const searchYouTubeWithApi = async (query: string, maxResults: number): Promise<YouTubeVideo[] | null> => {
+    const apiKeys = getApiKeySequence();
+    if (apiKeys.length === 0) return null;
 
-        // Validate and sanitize the query.
-        if (!query || query.trim() === '') {
-            throw new Error('Empty search query');
-        }
+    let lastError: unknown;
 
-        const cacheKey = buildCacheKey(query, maxResults);
-        const cached = getCachedSearch(cacheKey);
-        if (cached) {
-            return cached;
-        }
+    for (let index = 0; index < apiKeys.length; index += 1) {
+        const apiKey = apiKeys[index];
 
-        const apiKeys = getApiKeySequence();
-        let lastError: unknown;
+        try {
+            const searchResponse = await axios.get('https://www.googleapis.com/youtube/v3/search', {
+                params: {
+                    part: 'snippet',
+                    type: 'video',
+                    maxResults: Math.min(maxResults, 10),
+                    q: query,
+                    key: apiKey
+                },
+                timeout: 10000
+            });
 
-        for (let index = 0; index < apiKeys.length; index += 1) {
-            const apiKey = apiKeys[index];
+            if (!searchResponse.data.items || searchResponse.data.items.length === 0) {
+                return [];
+            }
 
-            try {
-                const searchResponse = await axios.get('https://www.googleapis.com/youtube/v3/search', {
-                    params: {
-                        part: 'snippet',
-                        type: 'video',
-                        maxResults: Math.min(maxResults, 10),
-                        q: query,
-                        key: apiKey
-                    },
-                    timeout: 10000
-                });
+            const videoIds = searchResponse.data.items
+                .map((item: any) => item.id.videoId)
+                .filter(Boolean)
+                .join(',');
 
-                if (!searchResponse.data.items || searchResponse.data.items.length === 0) {
-                    setCachedSearch(cacheKey, []);
-                    return [];
-                }
+            if (!videoIds) {
+                return [];
+            }
 
-                const videoIds = searchResponse.data.items
-                    .map((item: any) => item.id.videoId)
-                    .filter(Boolean)
-                    .join(',');
+            const detailKeys = apiKeys.slice(index).concat(apiKeys.slice(0, index));
+            const detailsMap = new Map();
+            let detailsFetched = false;
+            let detailError: unknown;
 
-                if (!videoIds) {
-                    setCachedSearch(cacheKey, []);
-                    return [];
-                }
+            for (const detailKey of detailKeys) {
+                try {
+                    const videoDetails = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
+                        params: {
+                            part: 'contentDetails,snippet',
+                            id: videoIds,
+                            key: detailKey
+                        },
+                        timeout: 10000
+                    });
 
-                const detailKeys = apiKeys.slice(index).concat(apiKeys.slice(0, index));
-                const detailsMap = new Map();
-                let detailsFetched = false;
-
-                for (const detailKey of detailKeys) {
-                    try {
-                        const videoDetails = await axios.get('https://www.googleapis.com/youtube/v3/videos', {
-                            params: {
-                                part: 'contentDetails,snippet',
-                                id: videoIds,
-                                key: detailKey
-                            },
-                            timeout: 10000
+                    if (videoDetails.data.items) {
+                        videoDetails.data.items.forEach((item: any) => {
+                            if (item.id) {
+                                detailsMap.set(item.id, item);
+                            }
                         });
+                    }
 
-                        if (videoDetails.data.items) {
-                            videoDetails.data.items.forEach((item: any) => {
-                                if (item.id) {
-                                    detailsMap.set(item.id, item);
-                                }
-                            });
-                        }
-
-                        detailsFetched = true;
+                    detailsFetched = true;
+                    break;
+                } catch (error) {
+                    detailError = error;
+                    if (!shouldRotateKey(error)) {
                         break;
-                    } catch (detailError) {
-                        lastError = detailError;
-                        if (!shouldRotateKey(detailError)) {
-                            throw detailError;
-                        }
                     }
                 }
+            }
 
-                if (!detailsFetched && lastError) {
-                    throw lastError;
-                }
-
-                const results = searchResponse.data.items
-                    .map((item: any) => {
-                        const videoId = item.id.videoId;
-                        const details = detailsMap.get(videoId);
-
-                        let duration = 'Desconocida';
-                        if (details?.contentDetails?.duration) {
-                            try {
-                                duration = formatDuration(details.contentDetails.duration);
-                            } catch (error) {
-                            console.error(chalk.yellow('Failed to format duration:'), error);
-                            }
-                        }
-
-                        return {
-                            id: videoId,
-                            title: item.snippet.title || 'Sin titulo',
-                            url: `https://www.youtube.com/watch?v=${videoId}`,
-                            channelTitle: item.snippet.channelTitle || 'Canal desconocido',
-                            thumbnail: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url || '',
-                            description: item.snippet.description || '',
-                            duration
-                        };
-                    })
-                    .filter((video: YouTubeVideo) => video.id && video.url);
-
-                setCachedSearch(cacheKey, results);
-                return results;
-            } catch (error) {
-                lastError = error;
-                if (shouldRotateKey(error)) {
+            if (!detailsFetched) {
+                lastError = detailError;
+                if (detailError && shouldRotateKey(detailError)) {
                     continue;
                 }
-                throw error;
+                break;
             }
-        }
 
-        if (lastError) {
-            logSearchError('YouTube search failed', lastError);
-        }
+            const results = searchResponse.data.items
+                .map((item: any) => {
+                    const videoId = item.id.videoId;
+                    const details = detailsMap.get(videoId);
 
-        const fallbackResults = await searchYouTubeFallback(query, maxResults);
+                    let duration = 'Desconocida';
+                    if (details?.contentDetails?.duration) {
+                        try {
+                            duration = formatDuration(details.contentDetails.duration);
+                        } catch (error) {
+                            console.error(chalk.yellow('Failed to format duration:'), error);
+                        }
+                    }
+
+                    return {
+                        id: videoId,
+                        title: item.snippet.title || 'Sin titulo',
+                        url: `https://www.youtube.com/watch?v=${videoId}`,
+                        channelTitle: item.snippet.channelTitle || 'Canal desconocido',
+                        thumbnail: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url || '',
+                        description: item.snippet.description || '',
+                        duration
+                    };
+                })
+                .filter((video: YouTubeVideo) => video.id && video.url);
+
+            return results;
+        } catch (error) {
+            lastError = error;
+            if (shouldRotateKey(error)) {
+                continue;
+            }
+            break;
+        }
+    }
+
+    if (lastError) {
+        logSearchError('YouTube API search failed', lastError);
+    }
+
+    return null;
+};
+
+export const searchYouTube = async (query: string, maxResults = 5): Promise<YouTubeVideo[]> => {
+    console.log(chalk.yellow(`Searching YouTube: ${query}`));
+
+    const normalizedQuery = normalizeSearchQuery(query);
+    if (!normalizedQuery) {
+        throw new Error('Empty search query');
+    }
+
+    const sanitizedQuery = query.trim();
+    const cacheKey = buildSearchCacheKey(normalizedQuery, maxResults);
+    const cached = getCachedSearch(cacheKey);
+    if (cached) {
+        return cached;
+    }
+
+    const queryHash = hashSearchQuery(normalizedQuery);
+    const persistedResults = await loadSearchCacheEntry(queryHash, maxResults);
+    if (persistedResults && persistedResults.length > 0) {
+        setCachedSearch(cacheKey, persistedResults);
+        return persistedResults;
+    }
+
+    const apiResults = await searchYouTubeWithApi(sanitizedQuery, maxResults);
+    if (apiResults !== null) {
+        setCachedSearch(cacheKey, apiResults);
+        void saveSearchCacheEntry(queryHash, maxResults, apiResults, 'api');
+        return apiResults;
+    }
+
+    try {
+        const fallbackResults = await searchYouTubeFallback(sanitizedQuery, maxResults);
         setCachedSearch(cacheKey, fallbackResults);
+        void saveSearchCacheEntry(queryHash, maxResults, fallbackResults, 'fallback');
         return fallbackResults;
     } catch (error) {
-        logSearchError('YouTube search failed', error);
-
+        logSearchError('Fallback search failed', error);
         throw error;
     }
 };

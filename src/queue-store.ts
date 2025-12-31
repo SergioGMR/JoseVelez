@@ -1,7 +1,6 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import chalk from 'chalk';
-import config from './config.js';
 import type { YouTubeVideo } from './types.js';
+import { getSupabaseClient } from './supabase-client.js';
 
 const TABLE_NAME = 'queue_items';
 
@@ -18,47 +17,6 @@ type QueueRow = {
 	requested_by: string | null;
 	requested_by_id: string | null;
 	created_at: string;
-};
-
-let supabaseClient: SupabaseClient | null = null;
-let warnedMissingConfig = false;
-let warnedLegacyKey = false;
-let warnedMissingBotKey = false;
-
-const getClient = (): SupabaseClient | null => {
-	if (!config.supabase.enabled) {
-		if (!warnedMissingConfig) {
-			console.warn(chalk.yellow('Supabase is not configured; persistent queues are disabled.'));
-			warnedMissingConfig = true;
-		}
-		return null;
-	}
-
-	if (!supabaseClient) {
-		const key = config.supabase.key!;
-
-		if (!warnedLegacyKey && isLegacyKey(key)) {
-			console.warn(chalk.yellow('Supabase is using a legacy API key; consider SUPABASE_SECRET_KEY.'));
-			warnedLegacyKey = true;
-		}
-
-		if (!warnedMissingBotKey && isNewKey(key) && !config.supabase.botKey) {
-			console.warn(chalk.yellow('SUPABASE_PUBLISHABLE_KEY is set without SUPABASE_BOT_KEY; enable RLS and set a bot key to restrict access.'));
-			warnedMissingBotKey = true;
-		}
-
-		const botHeader = config.supabase.botKey ? { 'x-bot-key': config.supabase.botKey } : undefined;
-
-		supabaseClient = createClient(config.supabase.url!, key, {
-			auth: { persistSession: false },
-			global: {
-				fetch: createSupabaseFetch(key),
-				headers: botHeader
-			}
-		});
-	}
-
-	return supabaseClient;
 };
 
 const logStoreError = (message: string, error: unknown): void => {
@@ -78,28 +36,8 @@ const mapRowToVideo = (row: QueueRow): YouTubeVideo => ({
 	queueItemId: row.id
 });
 
-const isLegacyKey = (key: string): boolean => key.startsWith('eyJ');
-
-const isNewKey = (key: string): boolean =>
-	key.startsWith('sb_publishable_') || key.startsWith('sb_secret_');
-
-const createSupabaseFetch = (key: string): typeof fetch | undefined => {
-	if (!isNewKey(key)) return undefined;
-
-	const bearerValue = `Bearer ${key}`;
-
-	return async (input, init) => {
-		const headers = new Headers(init?.headers);
-		if (headers.get('Authorization') === bearerValue) {
-			headers.delete('Authorization');
-		}
-
-		return fetch(input, { ...init, headers });
-	};
-};
-
 export const loadQueue = async (guildId: string): Promise<YouTubeVideo[]> => {
-	const client = getClient();
+	const client = getSupabaseClient();
 	if (!client) return [];
 
 	try {
@@ -123,7 +61,7 @@ export const loadQueue = async (guildId: string): Promise<YouTubeVideo[]> => {
 };
 
 export const addQueueItem = async (guildId: string, item: YouTubeVideo): Promise<string | null> => {
-	const client = getClient();
+	const client = getSupabaseClient();
 	if (!client) return null;
 
 	try {
@@ -157,7 +95,7 @@ export const addQueueItem = async (guildId: string, item: YouTubeVideo): Promise
 };
 
 export const removeQueueItem = async (guildId: string, queueItemId: string): Promise<void> => {
-	const client = getClient();
+	const client = getSupabaseClient();
 	if (!client) return;
 
 	try {
@@ -176,7 +114,7 @@ export const removeQueueItem = async (guildId: string, queueItemId: string): Pro
 };
 
 export const clearQueue = async (guildId: string): Promise<void> => {
-	const client = getClient();
+	const client = getSupabaseClient();
 	if (!client) return;
 
 	try {
