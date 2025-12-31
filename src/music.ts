@@ -105,7 +105,7 @@ const logSearchError = (context: string, error: unknown): void => {
 };
 
 const searchYouTubeFallback = async (query: string, maxResults: number): Promise<YouTubeVideo[]> => {
-    console.log(chalk.yellow('Usando fallback sin API de YouTube.'));
+    console.log(chalk.yellow('Using YouTube fallback search without the API.'));
     const result = await yts(query);
 
     return result.videos
@@ -124,11 +124,11 @@ const searchYouTubeFallback = async (query: string, maxResults: number): Promise
 
 export const searchYouTube = async (query: string, maxResults = 5): Promise<YouTubeVideo[]> => {
     try {
-        console.log(chalk.yellow(`Buscando en YouTube: ${query}`));
+        console.log(chalk.yellow(`Searching YouTube: ${query}`));
 
-        // Validar y sanear la consulta
+        // Validate and sanitize the query.
         if (!query || query.trim() === '') {
-            throw new Error('Consulta de búsqueda vacía');
+            throw new Error('Empty search query');
         }
 
         const cacheKey = buildCacheKey(query, maxResults);
@@ -217,7 +217,7 @@ export const searchYouTube = async (query: string, maxResults = 5): Promise<YouT
                             try {
                                 duration = formatDuration(details.contentDetails.duration);
                             } catch (error) {
-                                console.error(chalk.yellow('Error al formatear duracion:'), error);
+                            console.error(chalk.yellow('Failed to format duration:'), error);
                             }
                         }
 
@@ -245,14 +245,14 @@ export const searchYouTube = async (query: string, maxResults = 5): Promise<YouT
         }
 
         if (lastError) {
-            logSearchError('Error al buscar en YouTube', lastError);
+            logSearchError('YouTube search failed', lastError);
         }
 
         const fallbackResults = await searchYouTubeFallback(query, maxResults);
         setCachedSearch(cacheKey, fallbackResults);
         return fallbackResults;
     } catch (error) {
-        logSearchError('Error al buscar en YouTube', error);
+        logSearchError('YouTube search failed', error);
 
         throw error;
     }
@@ -329,9 +329,9 @@ const createAudioStream = async (url: string): Promise<{ stream: NodeJS.Readable
             };
         }
 
-        console.warn(chalk.yellow('yt-dlp no esta disponible; instala yt-dlp o define YTDLP_PATH.'));
+        console.warn(chalk.yellow('yt-dlp is not available; install yt-dlp or set YTDLP_PATH.'));
     } catch (error) {
-        console.warn(chalk.yellow('No se pudo usar yt-dlp, intentando con play-dl.'), error);
+        console.warn(chalk.yellow('Failed to use yt-dlp, trying play-dl.'), error);
     }
 
     try {
@@ -343,7 +343,7 @@ const createAudioStream = async (url: string): Promise<{ stream: NodeJS.Readable
             source: 'play-dl'
         };
     } catch (error) {
-        console.warn(chalk.yellow('No se pudo usar play-dl, intentando con ytdl.'), error);
+        console.warn(chalk.yellow('Failed to use play-dl, trying ytdl.'), error);
     }
 
     const ytdl = await getYtdl();
@@ -378,7 +378,7 @@ export const play = async (context: CommandContext, video: YouTubeVideo, client:
         const requestedBy = context.member.displayName || context.member.user.username;
         const queuedSong = { ...video, requestedBy, requestedById: context.member.id };
 
-        // Añadir la canción a la cola
+        // Add the song to the queue.
         serverQueue.queue.push(queuedSong);
         await appendQueueItem(guildId, queuedSong);
 
@@ -433,7 +433,7 @@ export const play = async (context: CommandContext, video: YouTubeVideo, client:
                     });
 
                     player.on('error', error => {
-                        console.error(chalk.red('Error en el reproductor de audio:'), error);
+                        console.error(chalk.red('Audio player error:'), error);
                         channel.send('Ocurrió un error durante la reproducción.');
                         shiftQueueItem(guildId, serverQueue);
                         if (serverQueue.queue.length > 0) {
@@ -447,7 +447,7 @@ export const play = async (context: CommandContext, video: YouTubeVideo, client:
                 await playNext(context, client);
 
             } catch (error) {
-                console.error(chalk.red('Error al reproducir:'), error);
+                console.error(chalk.red('Failed to play audio:'), error);
                 channel.send('Ocurrió un error al reproducir la canción.');
                 serverQueue.playing = false;
             }
@@ -466,11 +466,11 @@ export const play = async (context: CommandContext, video: YouTubeVideo, client:
             channel.send({ embeds: [embed] });
         }
     } catch (error) {
-        console.error(chalk.red('Error en la función play:'), error);
+        console.error(chalk.red('Error in play():'), error);
     }
 };
 
-// Añadimos una función de utilidad para manejar errores de manera consistente
+// Utility helper for consistent error handling.
 const handleError = (context: CommandContext, error: any, errorText: string): void => {
     console.error(chalk.red(errorText), error);
     context.channel.send({
@@ -481,7 +481,7 @@ const handleError = (context: CommandContext, error: any, errorText: string): vo
                 .setDescription(`${errorText}. Por favor intenta de nuevo más tarde.`)
                 .setTimestamp()
         ]
-    }).catch((err: unknown) => console.error('No se pudo enviar mensaje de error:', err));
+    }).catch((err: unknown) => console.error('Failed to send error message:', err));
 };
 
 export const playNext = async (context: CommandContext, client: BotClient): Promise<void> => {
@@ -498,16 +498,16 @@ export const playNext = async (context: CommandContext, client: BotClient): Prom
     serverQueue.playing = true;
 
     try {
-        // Validamos que la URL sea accesible antes de intentar reproducir
+        // Validate the URL before attempting playback.
         if (!currentSong.url || !extractYouTubeId(currentSong.url)) {
-            throw new Error('URL de YouTube inválida');
+            throw new Error('Invalid YouTube URL');
         }
 
         const { stream, streamType, source } = await createAudioStream(currentSong.url);
 
-        // Añadir manejo de errores para el stream
+        // Attach error handling to the stream.
         stream.on('error', (error) => {
-            console.error(chalk.red(`Error en el stream de ${source}:`), error);
+            console.error(chalk.red(`Stream error from ${source}:`), error);
             channel.send('Error al reproducir el stream de audio. Pasando a la siguiente canción...');
             shiftQueueItem(guildId, serverQueue);
             if (serverQueue.queue.length > 0) {
@@ -726,7 +726,7 @@ export const showQueue = async (context: CommandContext, client: BotClient): Pro
     });
 
     if (upcoming.length > 0) {
-        // Limita la lista a 10 canciones para evitar mensajes demasiado largos
+        // Limit to 10 entries to avoid overly long messages.
         const displayLimit = Math.min(upcoming.length, 10);
         const queueList = upcoming.slice(0, displayLimit).map((song: YouTubeVideo, index: number) =>
             `**${index + 1}.** [${song.title}](${song.url}) | ${song.duration || 'Duración desconocida'}`
@@ -743,7 +743,7 @@ export const showQueue = async (context: CommandContext, client: BotClient): Pro
         });
     }
 
-    // Calcula la duración total de manera más robusta
+    // Compute total duration with basic parsing and fallbacks.
     let totalDurationSeconds = 0;
     let hasUnknownDurations = false;
 
@@ -773,7 +773,7 @@ export const showQueue = async (context: CommandContext, client: BotClient): Pro
     channel.send({ embeds: [embed] });
 };
 
-// Formatea segundos totales a un formato más legible (hh:mm:ss)
+// Format total seconds into a readable format (hh:mm:ss).
 function formatTotalDuration(seconds: number): string {
     if (seconds === 0) return 'Duración desconocida';
 

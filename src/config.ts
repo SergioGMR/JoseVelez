@@ -6,16 +6,16 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Cargar variables de entorno desde .env
+// Load environment variables from .env.
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-// Verificar que las variables requeridas estén definidas
+// Ensure required variables are present.
 if (!process.env.DISCORD_TOKEN) {
-    throw new Error('DISCORD_TOKEN debe estar definido en el archivo .env');
+    throw new Error('DISCORD_TOKEN must be set in the .env file');
 }
 
 if (!process.env.DISCORD_CLIENT_ID) {
-    throw new Error('DISCORD_CLIENT_ID debe estar definido en el archivo .env');
+    throw new Error('DISCORD_CLIENT_ID must be set in the .env file');
 }
 
 const extraYouTubeKeys = Object.entries(process.env)
@@ -31,7 +31,7 @@ const youtubeApiKeys = [
     .filter(Boolean);
 
 if (youtubeApiKeys.length === 0) {
-    console.warn('No se encontraron API keys de YouTube; se usara el buscador sin API como fallback.');
+    console.warn('No YouTube API keys found; falling back to the non-API search.');
 }
 
 const supabaseUrl = process.env.SUPABASE_URL || null;

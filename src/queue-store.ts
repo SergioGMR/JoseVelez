@@ -28,7 +28,7 @@ let warnedMissingBotKey = false;
 const getClient = (): SupabaseClient | null => {
 	if (!config.supabase.enabled) {
 		if (!warnedMissingConfig) {
-			console.warn(chalk.yellow('Supabase no esta configurado; la cola persistente esta desactivada.'));
+			console.warn(chalk.yellow('Supabase is not configured; persistent queues are disabled.'));
 			warnedMissingConfig = true;
 		}
 		return null;
@@ -38,12 +38,12 @@ const getClient = (): SupabaseClient | null => {
 		const key = config.supabase.key!;
 
 		if (!warnedLegacyKey && isLegacyKey(key)) {
-			console.warn(chalk.yellow('Supabase usa una API key legacy; considera SUPABASE_SECRET_KEY.'));
+			console.warn(chalk.yellow('Supabase is using a legacy API key; consider SUPABASE_SECRET_KEY.'));
 			warnedLegacyKey = true;
 		}
 
 		if (!warnedMissingBotKey && isNewKey(key) && !config.supabase.botKey) {
-			console.warn(chalk.yellow('Usas SUPABASE_PUBLISHABLE_KEY sin SUPABASE_BOT_KEY; habilita RLS y el bot key si quieres restringir acceso.'));
+			console.warn(chalk.yellow('SUPABASE_PUBLISHABLE_KEY is set without SUPABASE_BOT_KEY; enable RLS and set a bot key to restrict access.'));
 			warnedMissingBotKey = true;
 		}
 
@@ -111,13 +111,13 @@ export const loadQueue = async (guildId: string): Promise<YouTubeVideo[]> => {
 			.order('id', { ascending: true });
 
 		if (error) {
-			logStoreError('No se pudo cargar la cola desde Supabase.', error);
+			logStoreError('Failed to load the queue from Supabase.', error);
 			return [];
 		}
 
 		return (data ?? []).map(mapRowToVideo);
 	} catch (error) {
-		logStoreError('Fallo al consultar Supabase para cargar la cola.', error);
+		logStoreError('Supabase query failed while loading the queue.', error);
 		return [];
 	}
 };
@@ -145,13 +145,13 @@ export const addQueueItem = async (guildId: string, item: YouTubeVideo): Promise
 			.single();
 
 		if (error) {
-			logStoreError('No se pudo guardar la cola en Supabase.', error);
+			logStoreError('Failed to persist the queue in Supabase.', error);
 			return null;
 		}
 
 		return data?.id ?? null;
 	} catch (error) {
-		logStoreError('Fallo al guardar en Supabase.', error);
+		logStoreError('Supabase insert failed while saving the queue.', error);
 		return null;
 	}
 };
@@ -168,10 +168,10 @@ export const removeQueueItem = async (guildId: string, queueItemId: string): Pro
 			.eq('guild_id', guildId);
 
 		if (error) {
-			logStoreError('No se pudo eliminar un item de la cola en Supabase.', error);
+			logStoreError('Failed to delete a queue item in Supabase.', error);
 		}
 	} catch (error) {
-		logStoreError('Fallo al eliminar un item en Supabase.', error);
+		logStoreError('Supabase delete failed while removing a queue item.', error);
 	}
 };
 
@@ -186,9 +186,9 @@ export const clearQueue = async (guildId: string): Promise<void> => {
 			.eq('guild_id', guildId);
 
 		if (error) {
-			logStoreError('No se pudo limpiar la cola en Supabase.', error);
+			logStoreError('Failed to clear the queue in Supabase.', error);
 		}
 	} catch (error) {
-		logStoreError('Fallo al limpiar la cola en Supabase.', error);
+		logStoreError('Supabase delete failed while clearing the queue.', error);
 	}
 };

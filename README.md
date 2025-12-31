@@ -1,88 +1,89 @@
 # Discord Music Bot
 
-Bot de musica para Discord que busca y reproduce canciones desde YouTube. Pensado para ser estable, predecible y con una dosis moderada de buen humor (no garantizamos que el algoritmo de YouTube lo comparta).
+A Discord music bot that searches and plays YouTube audio. Built to be stable, predictable, and mildly amused by your playlist choices.
 
-## Caracteristicas
+## Features
 
-- Comandos slash para buscar, reproducir y controlar musica.
-- Cola por servidor con botones de control (pausar, saltar, detener).
-- Busqueda con YouTube Data API y fallback sin API cuando la cuota se agota.
-- Persistencia opcional de la cola con Supabase.
+- Slash commands to search, play, and control playback.
+- Per-guild queue with control buttons (pause, skip, stop).
+- YouTube Data API search with a non-API fallback when quota runs out.
+- Optional Supabase persistence for queues.
+- User-facing responses are in Spanish.
 
-## Requisitos
+## Requirements
 
-- Node.js 18+ o Bun.
-- Un bot de Discord con permisos de voz.
-- (Opcional) YouTube Data API v3 para mejores resultados.
-- (Opcional) Supabase si quieres cola persistente.
+- Node.js 18+ or Bun.
+- A Discord bot with voice permissions.
+- (Optional) YouTube Data API v3 for better search results.
+- (Optional) Supabase if you want persistent queues.
 
-## Instalacion
+## Installation
 
 ```bash
 bun install
 ```
 
-## Configuracion
+## Configuration
 
-Crea un archivo `.env` en la raiz del proyecto:
+Create a `.env` file in the project root:
 
 ```bash
-DISCORD_TOKEN=tu_token
-DISCORD_CLIENT_ID=tu_client_id
-DISCORD_GUILD_ID=tu_guild_id_opcional
-DISCORD_REGISTER_COMMANDS=true_opcional
+DISCORD_TOKEN=your_token
+DISCORD_CLIENT_ID=your_client_id
+DISCORD_GUILD_ID=your_guild_id_optional
+DISCORD_REGISTER_COMMANDS=true_optional
 
-# YouTube (opcional, pero recomendado)
-YOUTUBE_API_KEY=tu_api_key_1
-YOUTUBE_API_KEY_2=tu_api_key_2_opcional
-YOUTUBE_API_KEYS=tu_api_key_3,tu_api_key_4_opcional
+# YouTube (optional, but recommended)
+YOUTUBE_API_KEY=your_api_key_1
+YOUTUBE_API_KEY_2=your_api_key_2_optional
+YOUTUBE_API_KEYS=your_api_key_3,your_api_key_4_optional
 
-# yt-dlp (opcional)
-YTDLP_PATH=/ruta/a/yt-dlp_opcional
-YTDLP_AUTO_DOWNLOAD=false_opcional
+# yt-dlp (optional)
+YTDLP_PATH=/path/to/yt-dlp_optional
+YTDLP_AUTO_DOWNLOAD=false_optional
 
-# Supabase (opcional)
-SUPABASE_URL=https://tu-proyecto.supabase.co
-SUPABASE_SECRET_KEY=tu_secret_key
-SUPABASE_PUBLISHABLE_KEY=tu_publishable_key_opcional
-SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key_legacy
-SUPABASE_ANON_KEY=tu_anon_key_legacy
-SUPABASE_BOT_KEY=tu_bot_key_opcional
-SUPABASE_QUEUE_KEY=tu_bot_key_legacy
+# Supabase (optional)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SECRET_KEY=your_secret_key
+SUPABASE_PUBLISHABLE_KEY=your_publishable_key_optional
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_legacy
+SUPABASE_ANON_KEY=your_anon_key_legacy
+SUPABASE_BOT_KEY=your_bot_key_optional
+SUPABASE_QUEUE_KEY=your_bot_key_legacy
 ```
 
-Notas rapidas:
-- Si no defines claves de YouTube, el bot usa el buscador sin API (menos preciso, pero no se queja de cuotas).
-- `DISCORD_GUILD_ID` registra comandos solo en ese servidor (actualizacion inmediata).
-- Para registro global, define `DISCORD_REGISTER_COMMANDS=true` sin `DISCORD_GUILD_ID`.
-- `YTDLP_AUTO_DOWNLOAD=false` desactiva la descarga automatica de `yt-dlp`.
-- En Supabase, usa `SUPABASE_SECRET_KEY` en servidores de confianza. Si usas `SUPABASE_PUBLISHABLE_KEY`, habilita RLS y define `SUPABASE_BOT_KEY`.
+Quick notes:
+- If you skip YouTube API keys, the bot uses the non-API fallback search.
+- `DISCORD_GUILD_ID` registers commands for a single guild (instant updates).
+- For global registration, set `DISCORD_REGISTER_COMMANDS=true` without `DISCORD_GUILD_ID`.
+- `YTDLP_AUTO_DOWNLOAD=false` disables auto-downloading `yt-dlp`.
+- For Supabase, use `SUPABASE_SECRET_KEY` on trusted servers. If you use `SUPABASE_PUBLISHABLE_KEY`, enable RLS and set `SUPABASE_BOT_KEY`.
 
-## Uso
+## Usage
 
-Desarrollo:
+Development:
 
 ```bash
 bun run dev
 ```
 
-Build y ejecucion:
+Build and run:
 
 ```bash
 bun run build
 bun run start
 ```
 
-Si prefieres Node:
+With Node:
 
 ```bash
 node dist/index.js
 ```
 
-## Comandos
+## Commands
 
-- `/buscar query:` Busca resultados en YouTube y permite elegir una cancion.
-- `/reproducir query:` Reproduce un resultado o una URL de YouTube.
+- `/buscar query:` Search YouTube and select a result.
+- `/reproducir query:` Play a YouTube URL or the first search result.
 - `/pausar`
 - `/reanudar`
 - `/saltar`
@@ -96,22 +97,22 @@ node dist/index.js
 bun test
 ```
 
-## Permisos e intents
+## Permissions and intents
 
-Permisos recomendados para el bot:
+Recommended bot permissions:
 - View Channels
 - Send Messages
 - Embed Links
 - Connect
 - Speak
 
-En el portal de Discord, activa los intents:
+Enable these intents in the Discord portal:
 - Guilds
 - Guild Voice States
 
-## Persistencia de cola (Supabase)
+## Supabase queue persistence
 
-Si quieres que la cola se guarde en la base de datos, crea estas tablas en Supabase:
+If you want to persist the queue, create these tables in Supabase:
 
 ```sql
 create table if not exists public.queue_items (
@@ -132,7 +133,7 @@ create table if not exists public.queue_items (
 create index if not exists queue_items_guild_id_created_at
   on public.queue_items (guild_id, created_at, id);
 
--- RLS recomendado si usas SUPABASE_PUBLISHABLE_KEY
+-- RLS recommended if you use SUPABASE_PUBLISHABLE_KEY
 create extension if not exists pgcrypto;
 
 create table if not exists public.queue_access (
@@ -141,7 +142,7 @@ create table if not exists public.queue_access (
 );
 
 insert into public.queue_access (id, key_hash)
-values (1, crypt('TU_BOT_KEY_SUPER_SECRETA', gen_salt('bf')))
+values (1, crypt('YOUR_SUPER_SECRET_BOT_KEY', gen_salt('bf')))
 on conflict (id) do update set key_hash = excluded.key_hash;
 
 alter table public.queue_items enable row level security;
@@ -163,14 +164,14 @@ with check (
 );
 ```
 
-## Notas de seguridad (sin asustar, pero con cafe)
+## Security notes
 
-- Nunca compartas `DISCORD_TOKEN` ni tus claves de Supabase. Son mas valiosas que el ultimo tema de tu playlist.
-- Solo se aceptan enlaces directos de YouTube para evitar sorpresas.
-- Si habilitas la descarga automatica de `yt-dlp`, asegurate de estar comodo con ese flujo.
+- Never share `DISCORD_TOKEN` or Supabase keys. Treat them like the last slice of pizza.
+- Only direct YouTube URLs are accepted to reduce surprises.
+- If you enable `yt-dlp` auto-download, make sure you are comfortable with that behavior.
 
-## Notas de registro de comandos
+## Command registration notes
 
-Al iniciar el bot se registran los comandos slash solo si `DISCORD_REGISTER_COMMANDS` esta activado. Si cambias los comandos y no ves los cambios:
-- Usa `DISCORD_GUILD_ID` para actualizar al instante.
-- Si son globales, espera la propagacion de Discord.
+Commands are registered only if `DISCORD_REGISTER_COMMANDS` is enabled. If you update commands and do not see changes:
+- Use `DISCORD_GUILD_ID` for instant updates.
+- For global commands, wait for Discord propagation.

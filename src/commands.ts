@@ -43,7 +43,7 @@ const ensureVoiceContext = async (
 	return context;
 };
 
-const buscar: SlashCommand = {
+const searchCommand: SlashCommand = {
 	data: new SlashCommandBuilder()
 		.setName('buscar')
 		.setDescription('Busca canciones en YouTube y muestra resultados para elegir.')
@@ -165,13 +165,13 @@ const buscar: SlashCommand = {
 						.setFooter(null);
 
 					serverQueue.searchMessage.edit({ embeds: [timeoutEmbed], components: [] })
-						.catch((err: unknown) => console.error(chalk.yellow('No se pudo editar el mensaje de busqueda al expirar:'), err));
+						.catch((err: unknown) => console.error(chalk.yellow('Failed to edit the expired search message:'), err));
 
 					serverQueue.searchMessage = null;
 				}
 			});
 		} catch (error) {
-			console.error(chalk.red('Error al buscar:'), error);
+			console.error(chalk.red('Search command failed:'), error);
 			if (deferred) {
 				await interaction.editReply('Ocurrio un error al buscar en YouTube. Por favor intenta de nuevo mas tarde.');
 			} else {
@@ -184,7 +184,7 @@ const buscar: SlashCommand = {
 	}
 };
 
-const reproducir: SlashCommand = {
+const playCommand: SlashCommand = {
 	data: new SlashCommandBuilder()
 		.setName('reproducir')
 		.setDescription('Reproduce musica desde YouTube.')
@@ -228,7 +228,7 @@ const reproducir: SlashCommand = {
 					await music.play(context, video, client);
 					await interaction.editReply('Listo. Reproduciendo tu seleccion.');
 				} catch (error) {
-					console.error(chalk.red('Error al procesar URL con play-dl:'), error);
+					console.error(chalk.red('Failed to process URL with play-dl:'), error);
 
 					try {
 						const ytdl = await getYtdl();
@@ -244,9 +244,9 @@ const reproducir: SlashCommand = {
 
 						await music.play(context, video, client);
 						await interaction.editReply('Listo. Reproduciendo tu seleccion.');
-					} catch (fallbackError) {
-						console.error(chalk.red('Error al procesar URL con ytdl:'), fallbackError);
-						const fallbackVideo = buildFallbackVideoFromUrl(canonicalUrl);
+				} catch (fallbackError) {
+					console.error(chalk.red('Failed to process URL with ytdl:'), fallbackError);
+					const fallbackVideo = buildFallbackVideoFromUrl(canonicalUrl);
 						await music.play(context, fallbackVideo, client);
 						await interaction.editReply('No pude leer los metadatos del enlace, pero intentare reproducirlo.');
 					}
@@ -268,7 +268,7 @@ const reproducir: SlashCommand = {
 			await music.play(context, videos[0], client);
 			await interaction.editReply('Listo. Reproduciendo tu seleccion.');
 		} catch (error) {
-			console.error(chalk.red('Error al reproducir:'), error);
+			console.error(chalk.red('Play command failed:'), error);
 			if (deferred) {
 				await interaction.editReply('Ocurrio un error al reproducir la cancion.');
 			} else {
@@ -281,7 +281,7 @@ const reproducir: SlashCommand = {
 	}
 };
 
-const detener: SlashCommand = {
+const stopCommand: SlashCommand = {
 	data: new SlashCommandBuilder()
 		.setName('detener')
 		.setDescription('Detiene la reproduccion y limpia la cola.'),
@@ -307,7 +307,7 @@ const detener: SlashCommand = {
 			await music.stop(context, client);
 			await safeReply(interaction, { content: 'Listo.', flags: MessageFlags.Ephemeral });
 		} catch (error) {
-			console.error(chalk.red('Error en comando detener:'), error);
+			console.error(chalk.red('Stop command failed:'), error);
 			await safeReply(interaction, {
 				content: 'Ocurrio un error inesperado al intentar detener la musica.',
 				flags: MessageFlags.Ephemeral
@@ -316,7 +316,7 @@ const detener: SlashCommand = {
 	}
 };
 
-const pausar: SlashCommand = {
+const pauseCommand: SlashCommand = {
 	data: new SlashCommandBuilder()
 		.setName('pausar')
 		.setDescription('Pausa la reproduccion actual.'),
@@ -350,7 +350,7 @@ const pausar: SlashCommand = {
 			music.pause(context, client);
 			await safeReply(interaction, { content: 'Listo.', flags: MessageFlags.Ephemeral });
 		} catch (error) {
-			console.error(chalk.red('Error en comando pausar:'), error);
+			console.error(chalk.red('Pause command failed:'), error);
 			await safeReply(interaction, {
 				content: 'Ocurrio un error inesperado al intentar pausar la musica.',
 				flags: MessageFlags.Ephemeral
@@ -359,7 +359,7 @@ const pausar: SlashCommand = {
 	}
 };
 
-const reanudar: SlashCommand = {
+const resumeCommand: SlashCommand = {
 	data: new SlashCommandBuilder()
 		.setName('reanudar')
 		.setDescription('Reanuda la reproduccion pausada.'),
@@ -393,7 +393,7 @@ const reanudar: SlashCommand = {
 			music.resume(context, client);
 			await safeReply(interaction, { content: 'Listo.', flags: MessageFlags.Ephemeral });
 		} catch (error) {
-			console.error(chalk.red('Error en comando reanudar:'), error);
+			console.error(chalk.red('Resume command failed:'), error);
 			await safeReply(interaction, {
 				content: 'Ocurrio un error inesperado al intentar reanudar la musica.',
 				flags: MessageFlags.Ephemeral
@@ -402,7 +402,7 @@ const reanudar: SlashCommand = {
 	}
 };
 
-const saltar: SlashCommand = {
+const skipCommand: SlashCommand = {
 	data: new SlashCommandBuilder()
 		.setName('saltar')
 		.setDescription('Salta a la siguiente cancion en la cola.'),
@@ -436,7 +436,7 @@ const saltar: SlashCommand = {
 			music.skip(context, client);
 			await safeReply(interaction, { content: 'Listo.', flags: MessageFlags.Ephemeral });
 		} catch (error) {
-			console.error(chalk.red('Error en comando saltar:'), error);
+			console.error(chalk.red('Skip command failed:'), error);
 			await safeReply(interaction, {
 				content: 'Ocurrio un error inesperado al intentar saltar la cancion.',
 				flags: MessageFlags.Ephemeral
@@ -445,7 +445,7 @@ const saltar: SlashCommand = {
 	}
 };
 
-const cola: SlashCommand = {
+const queueCommand: SlashCommand = {
 	data: new SlashCommandBuilder()
 		.setName('cola')
 		.setDescription('Muestra la cola de reproduccion actual.'),
@@ -457,7 +457,7 @@ const cola: SlashCommand = {
 			await music.showQueue(context, client);
 			await safeReply(interaction, { content: 'Mostrando la cola de reproduccion.', flags: MessageFlags.Ephemeral });
 		} catch (error) {
-			console.error(chalk.red('Error en comando cola:'), error);
+			console.error(chalk.red('Queue command failed:'), error);
 			await safeReply(interaction, {
 				content: 'Ocurrio un error inesperado al intentar mostrar la cola.',
 				flags: MessageFlags.Ephemeral
@@ -466,7 +466,7 @@ const cola: SlashCommand = {
 	}
 };
 
-const ayuda: SlashCommand = {
+const helpCommand: SlashCommand = {
 	data: new SlashCommandBuilder()
 		.setName('ayuda')
 		.setDescription('Muestra la ayuda del bot.'),
@@ -489,7 +489,7 @@ const ayuda: SlashCommand = {
 
 			await interaction.reply({ embeds: [embed] });
 		} catch (error) {
-			console.error(chalk.red('Error en comando ayuda:'), error);
+			console.error(chalk.red('Help command failed:'), error);
 			await safeReply(interaction, {
 				content: 'Ocurrio un error inesperado al mostrar la ayuda.',
 				flags: MessageFlags.Ephemeral
@@ -499,14 +499,14 @@ const ayuda: SlashCommand = {
 };
 
 export const commandList: SlashCommand[] = [
-	buscar,
-	reproducir,
-	pausar,
-	reanudar,
-	saltar,
-	cola,
-	detener,
-	ayuda
+	searchCommand,
+	playCommand,
+	pauseCommand,
+	resumeCommand,
+	skipCommand,
+	queueCommand,
+	stopCommand,
+	helpCommand
 ];
 
 export const commandMap = new Map(commandList.map(command => [command.data.name, command]));

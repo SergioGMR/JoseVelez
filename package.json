@@ -1,7 +1,7 @@
 {
     "name": "discord-music-bot",
     "version": "1.0.0",
-    "description": "Bot de Discord para buscar y reproducir música desde YouTube",
+    "description": "Discord bot to search and play music from YouTube",
     "main": "src/index.ts",
     "type": "module",
     "scripts": {
