@@ -1,0 +1,36 @@
+{
+    "name": "discord-music-bot",
+    "version": "1.0.0",
+    "description": "Bot de Discord para buscar y reproducir música desde YouTube",
+    "main": "src/index.ts",
+    "type": "module",
+    "scripts": {
+        "start": "bun dist/index.js",
+        "dev": "bun src/index.ts",
+        "build": "tsc",
+        "watch": "tsc -w",
+        "test": "bun test"
+    },
+    "dependencies": {
+        "@discordjs/voice": "^0.19.0",
+        "@distube/ytdl-core": "^4.16.12",
+        "@snazzah/davey": "^0.1.9",
+        "@supabase/supabase-js": "^2.89.0",
+        "axios": "^1.13.2",
+        "chalk": "^5.6.2",
+        "discord.js": "^14.25.1",
+        "dotenv": "^17.2.3",
+        "ffmpeg-static": "^5.3.0",
+        "libsodium-wrappers": "^0.7.16",
+        "play-dl": "^1.9.7",
+        "yt-dlp-wrap": "^2.3.12",
+        "yt-search": "^2.13.1"
+    },
+    "devDependencies": {
+        "@types/node": "^25.0.3",
+        "@types/yt-search": "^2.10.3",
+        "eslint": "^9.39.2",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.9.3"
+    }
+}
