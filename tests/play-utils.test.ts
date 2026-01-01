@@ -21,12 +21,28 @@ describe('splitQueryInput', () => {
 });
 
 describe('scoreVideoForQuery', () => {
-	it('prefers official channels and titles', () => {
+	it('prefers official phrases over lyric videos', () => {
 		const query = 'song';
 		const official = createVideo({ title: 'Song (Official Video)', channelTitle: 'Artist' });
-		const regular = createVideo({ title: 'Song', channelTitle: 'Somebody' });
+		const lyric = createVideo({ title: 'Song (Lyric Video)', channelTitle: 'Artist' });
 
-		expect(scoreVideoForQuery(official, query)).toBeGreaterThan(scoreVideoForQuery(regular, query));
+		expect(scoreVideoForQuery(official, query)).toBeGreaterThan(scoreVideoForQuery(lyric, query));
+	});
+
+	it('penalizes covers when not requested', () => {
+		const query = 'song';
+		const original = createVideo({ title: 'Song', channelTitle: 'Artist' });
+		const cover = createVideo({ title: 'Song (Cover)', channelTitle: 'Artist' });
+
+		expect(scoreVideoForQuery(original, query)).toBeGreaterThan(scoreVideoForQuery(cover, query));
+	});
+
+	it('does not penalize requested variants', () => {
+		const query = 'song live';
+		const live = createVideo({ title: 'Song (Live)', channelTitle: 'Artist' });
+		const studio = createVideo({ title: 'Song', channelTitle: 'Artist' });
+
+		expect(scoreVideoForQuery(live, query)).toBeGreaterThan(scoreVideoForQuery(studio, query));
 	});
 });
 
