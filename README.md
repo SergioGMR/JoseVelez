@@ -96,7 +96,7 @@ Optional: Mount a volume for `~/.cache/discord-music-bot` if you want to persist
 ## Commands
 
 - `/buscar query:` Search YouTube and select a result.
-- `/reproducir query:` Play a YouTube URL or the first search result.
+- `/reproducir query:` Play a YouTube URL or the first search result. You can pass multiple queries separated by `;` or `,`.
 - `/pausar`
 - `/reanudar`
 - `/saltar`

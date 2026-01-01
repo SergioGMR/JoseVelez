@@ -18,6 +18,8 @@ const EXCLUDED_FILES = new Set([
 	'types.js',
 	'helpers.ts',
 	'helpers.js',
+	'play-utils.ts',
+	'play-utils.js',
 ]);
 
 let cachedRegistry: CommandRegistry | null = null;
