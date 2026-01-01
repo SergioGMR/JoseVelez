@@ -61,6 +61,7 @@ Quick notes:
 - `DISCORD_GUILD_ID` registers commands for a single guild (instant updates).
 - For global registration, set `DISCORD_REGISTER_COMMANDS=true` without `DISCORD_GUILD_ID`.
 - `YTDLP_AUTO_DOWNLOAD=false` disables auto-downloading `yt-dlp`.
+- If you want to avoid Python, use the standalone `yt-dlp` binary and set `YTDLP_PATH`.
 - `YTDLP_COOKIES_PATH` lets you pass a cookies file for age-restricted or bot-checked videos.
 - For Supabase, use `SUPABASE_SECRET_KEY` on trusted servers. If you use `SUPABASE_PUBLISHABLE_KEY`, enable RLS and set `SUPABASE_BOT_KEY`.
 
@@ -95,7 +96,7 @@ This repo ships a Dockerfile for Bun. In Dokploy:
 4) If you update the Dockerfile, rebuild without cache to make sure the image refreshes.  
 
 Optional: Mount a volume for `~/.cache/discord-music-bot` if you want to persist the `yt-dlp` download.
-The Dockerfile also installs `python3` so the bundled `yt-dlp` script can run without extra setup.
+The Dockerfile downloads the standalone `yt-dlp` binary, so no Python is required.
 If you provide `YTDLP_COOKIES_PATH`, mount that file into the container too.
 
 ## Commands
@@ -232,9 +233,9 @@ with check (
 ### "yt-dlp is not available; install yt-dlp or set YTDLP_PATH"
 
 - Make sure you rebuilt the Docker image after the Dockerfile update.
-- Confirm `YTDLP_PATH=/app/src/yt-dlp/yt-dlp` is set in your container env.
-- Verify `python3` exists inside the container.
-- Check the file is executable: `ls -l /app/src/yt-dlp/yt-dlp`.
+- Confirm `YTDLP_PATH=/usr/local/bin/yt-dlp` is set in your container env.
+- Check the file is executable: `ls -l /usr/local/bin/yt-dlp`.
+- Verify the binary runs: `/usr/local/bin/yt-dlp --version`.
 
 ### "Sign in to confirm you're not a bot"
 
