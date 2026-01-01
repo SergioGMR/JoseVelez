@@ -64,9 +64,48 @@ const resolveCookiesPath = async (): Promise<string | null> => {
 	}
 };
 
+const resolvePlayerClient = (): string | null => {
+	const envValue = process.env.YTDLP_PLAYER_CLIENT?.trim();
+	return envValue ? envValue : null;
+};
+
+const resolvePoToken = (): string | null => {
+	const envValue = process.env.YTDLP_PO_TOKEN?.trim();
+	return envValue ? envValue : null;
+};
+
+const buildExtractorArgs = (): string | null => {
+	const poToken = resolvePoToken();
+	const playerClient = resolvePlayerClient() ?? (poToken ? 'default,mweb' : null);
+
+	if (!poToken && !playerClient) return null;
+
+	const parts: string[] = [];
+	if (playerClient) {
+		parts.push(`player-client=${playerClient}`);
+	}
+
+	if (poToken) {
+		const normalizedToken = poToken.includes('+') ? poToken : `mweb.gvs+${poToken}`;
+		parts.push(`po_token=${normalizedToken}`);
+	}
+
+	return `youtube:${parts.join(';')}`;
+};
+
 const buildYtDlpArgs = async (args: string[]): Promise<string[]> => {
 	const cookiePath = await resolveCookiesPath();
-	const mergedArgs = cookiePath ? ['--cookies', cookiePath, ...args] : [...args];
+	const extractorArgs = buildExtractorArgs();
+
+	const mergedArgs: string[] = [];
+	if (cookiePath) {
+		mergedArgs.push('--cookies', cookiePath);
+	}
+	if (extractorArgs && !args.includes('--extractor-args')) {
+		mergedArgs.push('--extractor-args', extractorArgs);
+	}
+	mergedArgs.push(...args);
+
 	return ensureStdoutArgs(mergedArgs);
 };
 

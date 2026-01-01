@@ -46,6 +46,8 @@ YOUTUBE_API_KEYS=your_api_key_3,your_api_key_4_optional
 YTDLP_PATH=/path/to/yt-dlp_optional
 YTDLP_AUTO_DOWNLOAD=false_optional
 YTDLP_COOKIES_PATH=/path/to/cookies.txt_optional
+YTDLP_PO_TOKEN=your_po_token_optional
+YTDLP_PLAYER_CLIENT=default,mweb_optional
 
 # SoundCloud (optional)
 SOUNDCLOUD_CLIENT_ID=your_client_id_optional
@@ -67,6 +69,8 @@ Quick notes:
 - `YTDLP_AUTO_DOWNLOAD=false` disables auto-downloading `yt-dlp`.
 - If you want to avoid Python, use the standalone `yt-dlp` binary and set `YTDLP_PATH`.
 - `YTDLP_COOKIES_PATH` lets you pass a cookies file for age-restricted or bot-checked videos.
+- `YTDLP_PO_TOKEN` can be used to pass YouTube PO Tokens (see the section below).
+- `YTDLP_PLAYER_CLIENT` defaults to `default,mweb` when `YTDLP_PO_TOKEN` is set.
 - If you set `SOUNDCLOUD_CLIENT_ID`, it overrides the auto-discovered client id.
 - For Supabase, use `SUPABASE_SECRET_KEY` on trusted servers. If you use `SUPABASE_PUBLISHABLE_KEY`, enable RLS and set `SUPABASE_BOT_KEY`.
 
@@ -247,11 +251,32 @@ with check (
 
 - This means YouTube blocked `play-dl`/`ytdl`. Use `yt-dlp` with cookies.
 - Mount a `cookies.txt` file (Netscape format) and set `YTDLP_COOKIES_PATH`.
+- You can also provide a PO Token for the `mweb` client (see below), but it typically still requires cookies.
 
 ### "YouTube blocked but SoundCloud fallback did not play"
 
 - The fallback runs a SoundCloud search using the track title and channel.
 - If it still fails, try a more specific query or provide cookies for YouTube.
+
+## YouTube PO Token (advanced)
+
+PO Tokens (Proof of Origin) are required by YouTube for some clients. They are tied to your session and expire.
+If you want to use them with `yt-dlp`, set `YTDLP_PO_TOKEN` and optionally `YTDLP_PLAYER_CLIENT`.
+
+Quick manual extraction (for `mweb` GVS token):
+1) Open https://music.youtube.com in your browser.
+2) Open DevTools, go to Network, filter by `v1/player`.
+3) Play a track and open the latest `player` request.
+4) In the JSON payload, copy `serviceIntegrityDimensions.poToken`.
+5) Export YouTube cookies to a `cookies.txt` (Netscape format).
+6) Set:
+   - `YTDLP_PO_TOKEN=<token>`
+   - `YTDLP_PLAYER_CLIENT=default,mweb`
+   - `YTDLP_COOKIES_PATH=/path/to/cookies.txt`
+
+Notes:
+- If your token already includes a prefix like `mweb.gvs+`, you can paste it as-is.
+- Tokens are short-lived; you will need to refresh them periodically.
 
 ### "Could not find the table 'public.search_cache'"
 
