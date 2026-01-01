@@ -1,5 +1,7 @@
 # Discord Music Bot
 
+[![Tests](https://github.com/SergioGMR/JoseVelez/actions/workflows/tests.yml/badge.svg)](https://github.com/SergioGMR/JoseVelez/actions/workflows/tests.yml)
+
 A Discord music bot that searches and plays YouTube audio. Built to be stable, predictable, and mildly amused by your playlist choices.
 
 ## Features
