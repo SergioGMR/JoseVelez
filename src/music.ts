@@ -3,6 +3,7 @@ import { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, ComponentTy
 import { BotClient, ServerQueue, YouTubeVideo } from './types.js';
 import { CommandContext } from './interaction-utils.js';
 import config from './config.js';
+import { Readable } from 'stream';
 import { getPlayDl } from './playdl.js';
 import { ensureYtDlpAvailable, spawnYtDlpStream } from './ytdlp.js';
 import { getYtdl } from './ytdl.js';
@@ -335,7 +336,7 @@ const shiftQueueItem = (guildId: string, serverQueue: ServerQueue): void => {
     }
 };
 
-const createAudioStream = async (url: string): Promise<{ stream: NodeJS.ReadableStream; streamType: StreamType; source: string }> => {
+const createAudioStream = async (url: string): Promise<{ stream: Readable; streamType: StreamType; source: string }> => {
     const videoId = extractYouTubeId(url);
     const targetUrl = videoId ? `https://www.youtube.com/watch?v=${videoId}` : url;
 
@@ -344,7 +345,7 @@ const createAudioStream = async (url: string): Promise<{ stream: NodeJS.Readable
         if (ytDlpAvailable) {
             const stream = await spawnYtDlpStream([...YTDLP_STREAM_ARGS, targetUrl]);
             return {
-                stream,
+                stream: stream as Readable,
                 streamType: StreamType.Arbitrary,
                 source: 'yt-dlp'
             };
@@ -359,7 +360,7 @@ const createAudioStream = async (url: string): Promise<{ stream: NodeJS.Readable
         const playdl = await getPlayDl();
         const streamInfo = await playdl.stream(targetUrl, { discordPlayerCompatibility: true });
         return {
-            stream: streamInfo.stream,
+            stream: streamInfo.stream as unknown as Readable,
             streamType: streamInfo.type as unknown as StreamType,
             source: 'play-dl'
         };
@@ -375,7 +376,7 @@ const createAudioStream = async (url: string): Promise<{ stream: NodeJS.Readable
     });
 
     return {
-        stream,
+        stream: stream as Readable,
         streamType: StreamType.Arbitrary,
         source: 'ytdl'
     };
@@ -768,11 +769,7 @@ export const showQueue = async (context: CommandContext, client: BotClient): Pro
     let totalDurationSeconds = 0;
     let hasUnknownDurations = false;
 
-    interface SongWithDuration extends YouTubeVideo {
-        duration: string | undefined;
-    }
-
-    serverQueue.queue.forEach((song: SongWithDuration) => {
+    serverQueue.queue.forEach((song: YouTubeVideo) => {
         if (song.duration) {
             try {
                 totalDurationSeconds += durationToSeconds(song.duration);

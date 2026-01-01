@@ -8,7 +8,12 @@ import path from 'path';
 const binaryName = process.platform === 'win32' ? 'yt-dlp.exe' : 'yt-dlp';
 const defaultBinaryPath = path.join(os.homedir(), '.cache', 'discord-music-bot', binaryName);
 
-let ytDlpPromise: Promise<YTDlpWrap> | null = null;
+type YtDlpWrapConstructor = typeof import('yt-dlp-wrap').default;
+type YtDlpWrapInstance = InstanceType<YtDlpWrapConstructor>;
+
+const YtDlpWrap = YTDlpWrap as unknown as YtDlpWrapConstructor;
+
+let ytDlpPromise: Promise<YtDlpWrapInstance> | null = null;
 let availabilityPromise: Promise<boolean> | null = null;
 
 const getAutoDownload = (): boolean => {
@@ -56,7 +61,7 @@ const ensureBinary = async (binaryPath: string, autoDownload: boolean): Promise<
 		await fs.access(binaryPath, fsConstants.X_OK);
 	} catch {
 		await fs.mkdir(path.dirname(binaryPath), { recursive: true });
-		await YTDlpWrap.downloadFromGithub(binaryPath);
+		await YtDlpWrap.downloadFromGithub(binaryPath);
 	}
 };
 
@@ -103,11 +108,11 @@ const resolveBinaryPath = async (): Promise<string> => {
 	return 'yt-dlp';
 };
 
-export const getYtDlpWrap = async (): Promise<YTDlpWrap> => {
+export const getYtDlpWrap = async (): Promise<YtDlpWrapInstance> => {
 	if (!ytDlpPromise) {
 		ytDlpPromise = (async () => {
 			const binaryPath = await resolveBinaryPath();
-			return new YTDlpWrap(binaryPath);
+			return new YtDlpWrap(binaryPath);
 		})();
 	}
 

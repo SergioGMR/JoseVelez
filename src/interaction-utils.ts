@@ -1,10 +1,11 @@
 import {
-	ChannelType,
 	ChatInputCommandInteraction,
 	GuildMember,
 	MessageFlags,
 	PermissionFlagsBits,
+	type InteractionReplyOptions,
 	type GuildTextBasedChannel,
+	type MessagePayload,
 	type VoiceBasedChannel,
 } from 'discord.js';
 import type { BotClient } from './types.js';
@@ -15,24 +16,24 @@ export interface CommandContext {
 	member: GuildMember;
 }
 
-const normalizeReplyOptions = (
-	options: Parameters<ChatInputCommandInteraction['reply']>[0],
-) => {
+type ReplyOptions = string | InteractionReplyOptions | MessagePayload;
+
+const normalizeReplyOptions = (options: ReplyOptions): ReplyOptions => {
 	if (typeof options === 'string') return options;
 
-	const optionsWithEphemeral = options as { ephemeral?: boolean };
+	const optionsWithEphemeral = options as InteractionReplyOptions & { ephemeral?: boolean };
 	if (!optionsWithEphemeral.ephemeral) return options;
 
 	const { ephemeral, ...rest } = optionsWithEphemeral;
 	return {
 		...rest,
 		flags: MessageFlags.Ephemeral,
-	};
+	} as InteractionReplyOptions;
 };
 
 export const safeReply = async (
 	interaction: ChatInputCommandInteraction,
-	options: Parameters<ChatInputCommandInteraction['reply']>[0],
+	options: ReplyOptions,
 ) => {
 	const normalizedOptions = normalizeReplyOptions(options);
 
@@ -41,7 +42,7 @@ export const safeReply = async (
 			return interaction.editReply(normalizedOptions);
 		}
 
-		const { flags, ...rest } = normalizedOptions as Record<string, unknown>;
+		const { flags, ...rest } = normalizedOptions as InteractionReplyOptions;
 		return interaction.editReply(rest);
 	}
 
@@ -64,7 +65,7 @@ export const getGuildContext = async (
 	}
 
 	const channel = interaction.channel;
-	if (!channel || !channel.isTextBased() || channel.type === ChannelType.DM) {
+	if (!channel || !channel.isTextBased() || channel.isDMBased()) {
 		await safeReply(interaction, {
 			content: 'Este comando solo funciona en canales de texto de servidores.',
 			flags: MessageFlags.Ephemeral,
