@@ -11,12 +11,16 @@ import { addQueueItem, clearQueue, loadQueue, removeQueueItem } from './queue-st
 import { loadSearchCacheEntry, saveSearchCacheEntry } from './search-cache-store.js';
 import { buildSearchCacheKey, hashSearchQuery, normalizeSearchQuery } from './search-cache-utils.js';
 import { extractYouTubeId } from './youtube-utils.js';
+import { buildSoundCloudQuery, isYouTubeLoginRequiredError } from './fallback-utils.js';
+import { createSoundCloudStream, isSoundCloudUrl, searchSoundCloudTracks } from './soundcloud.js';
+import { pickBestVideo } from './commands/play-utils.js';
 import axios from 'axios';
 import yts from 'yt-search';
 import chalk from 'chalk';
 
 const SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
 const SEARCH_CACHE_MAX_ENTRIES = 100;
+const SOUNDCLOUD_FALLBACK_LIMIT = 5;
 const searchCache = new Map<string, { expiresAt: number; results: YouTubeVideo[] }>();
 
 let youtubeApiKeyIndex = 0;
@@ -29,6 +33,32 @@ const YTDLP_STREAM_ARGS = [
     '--no-warnings',
     '--no-progress'
 ];
+
+const resolveTrackSource = (track: YouTubeVideo): 'youtube' | 'soundcloud' => {
+    if (track.source === 'soundcloud') return 'soundcloud';
+    if (track.source === 'youtube') return 'youtube';
+    return isSoundCloudUrl(track.url) ? 'soundcloud' : 'youtube';
+};
+
+const applyFallbackTrack = (target: YouTubeVideo, fallback: YouTubeVideo): void => {
+    const { requestedBy, requestedById, queueItemId } = target;
+    Object.assign(target, fallback, {
+        requestedBy,
+        requestedById,
+        queueItemId,
+        fallbackAttempted: true
+    });
+};
+
+const resolveSoundCloudFallback = async (track: YouTubeVideo): Promise<YouTubeVideo | null> => {
+    const query = buildSoundCloudQuery(track);
+    if (!query) return null;
+
+    const results = await searchSoundCloudTracks(query, SOUNDCLOUD_FALLBACK_LIMIT);
+    if (results.length === 0) return null;
+
+    return pickBestVideo(results, query) ?? results[0];
+};
 
 const getCachedSearch = (cacheKey: string): YouTubeVideo[] | null => {
     const cached = searchCache.get(cacheKey);
@@ -116,7 +146,8 @@ const searchYouTubeFallback = async (query: string, maxResults: number): Promise
             channelTitle: video.author?.name || 'Canal desconocido',
             thumbnail: video.thumbnail || video.image || '',
             description: video.description || '',
-            duration: video.timestamp || video.duration?.timestamp || 'Desconocida'
+            duration: video.timestamp || video.duration?.timestamp || 'Desconocida',
+            source: 'youtube' as const
         }))
         .filter(video => video.id && video.url);
 };
@@ -218,7 +249,8 @@ const searchYouTubeWithApi = async (query: string, maxResults: number): Promise<
                         channelTitle: item.snippet.channelTitle || 'Canal desconocido',
                         thumbnail: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url || '',
                         description: item.snippet.description || '',
-                        duration
+                        duration,
+                        source: 'youtube' as const
                     };
                 })
                 .filter((video: YouTubeVideo) => video.id && video.url);
@@ -287,7 +319,8 @@ const createServerQueue = (): ServerQueue => ({
     connection: null,
     player: null,
     searchMessage: null,
-    queueLoaded: false
+    queueLoaded: false,
+    handlingError: false
 });
 
 const getServerQueue = (guildId: string, client: BotClient): ServerQueue => {
@@ -336,9 +369,14 @@ const shiftQueueItem = (guildId: string, serverQueue: ServerQueue): void => {
     }
 };
 
-const createAudioStream = async (url: string): Promise<{ stream: Readable; streamType: StreamType; source: string }> => {
-    const videoId = extractYouTubeId(url);
-    const targetUrl = videoId ? `https://www.youtube.com/watch?v=${videoId}` : url;
+const createAudioStream = async (track: YouTubeVideo): Promise<{ stream: Readable; streamType: StreamType; source: string }> => {
+    const resolvedSource = resolveTrackSource(track);
+    if (resolvedSource === 'soundcloud') {
+        return createSoundCloudStream(track.url);
+    }
+
+    const videoId = extractYouTubeId(track.url);
+    const targetUrl = videoId ? `https://www.youtube.com/watch?v=${videoId}` : track.url;
 
     try {
         const ytDlpAvailable = await ensureYtDlpAvailable();
@@ -455,14 +493,7 @@ export const play = async (context: CommandContext, video: YouTubeVideo, client:
                     });
 
                     player.on('error', error => {
-                        console.error(chalk.red('Audio player error:'), error);
-                        channel.send('Ocurrió un error durante la reproducción.');
-                        shiftQueueItem(guildId, serverQueue);
-                        if (serverQueue.queue.length > 0) {
-                            playNext(context, client);
-                        } else {
-                            serverQueue.playing = false;
-                        }
+                        void handlePlaybackFailure(context, client, serverQueue, error);
                     });
                 }
 
@@ -506,6 +537,53 @@ const handleError = (context: CommandContext, error: any, errorText: string): vo
     }).catch((err: unknown) => console.error('Failed to send error message:', err));
 };
 
+const handlePlaybackFailure = async (
+    context: CommandContext,
+    client: BotClient,
+    serverQueue: ServerQueue,
+    error: unknown
+): Promise<void> => {
+    if (serverQueue.handlingError) return;
+    serverQueue.handlingError = true;
+
+    const channel = context.channel;
+    const guildId = context.guildId;
+
+    try {
+        console.error(chalk.red('Audio player error:'), error);
+
+        const currentSong = serverQueue.queue[0];
+        if (currentSong) {
+            const resolvedSource = resolveTrackSource(currentSong);
+            const shouldFallback = resolvedSource === 'youtube'
+                && !currentSong.fallbackAttempted
+                && isYouTubeLoginRequiredError(error);
+
+            if (shouldFallback) {
+                currentSong.fallbackAttempted = true;
+                const fallbackTrack = await resolveSoundCloudFallback(currentSong);
+                if (fallbackTrack) {
+                    applyFallbackTrack(currentSong, fallbackTrack);
+                    void channel.send(`YouTube bloqueo este audio. Usando SoundCloud: **${fallbackTrack.title}**`);
+                    serverQueue.player?.stop(true);
+                    await playNext(context, client);
+                    return;
+                }
+            }
+        }
+
+        channel.send('Ocurrió un error durante la reproducción.');
+        shiftQueueItem(guildId, serverQueue);
+        if (serverQueue.queue.length > 0) {
+            await playNext(context, client);
+        } else {
+            serverQueue.playing = false;
+        }
+    } finally {
+        serverQueue.handlingError = false;
+    }
+};
+
 export const playNext = async (context: CommandContext, client: BotClient): Promise<void> => {
     const guildId = context.guildId;
     const channel = context.channel;
@@ -521,23 +599,16 @@ export const playNext = async (context: CommandContext, client: BotClient): Prom
 
     try {
         // Validate the URL before attempting playback.
-        if (!currentSong.url || !extractYouTubeId(currentSong.url)) {
+        if (!currentSong.url) {
+            throw new Error('Invalid track URL');
+        }
+
+        const resolvedSource = resolveTrackSource(currentSong);
+        if (resolvedSource === 'youtube' && !extractYouTubeId(currentSong.url)) {
             throw new Error('Invalid YouTube URL');
         }
 
-        const { stream, streamType, source } = await createAudioStream(currentSong.url);
-
-        // Attach error handling to the stream.
-        stream.on('error', (error) => {
-            console.error(chalk.red(`Stream error from ${source}:`), error);
-            channel.send('Error al reproducir el stream de audio. Pasando a la siguiente canción...');
-            shiftQueueItem(guildId, serverQueue);
-            if (serverQueue.queue.length > 0) {
-                playNext(context, client);
-            } else {
-                serverQueue.playing = false;
-            }
-        });
+        const { stream, streamType } = await createAudioStream(currentSong);
 
         const resource = createAudioResource(stream, { inputType: streamType });
         serverQueue.player?.play(resource);

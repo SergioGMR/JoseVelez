@@ -118,7 +118,8 @@ const enqueueSingleQuery = async (
 				channelTitle: details.channel?.name || 'Canal desconocido',
 				thumbnail,
 				duration,
-				description: details.description || ''
+				description: details.description || '',
+				source: 'youtube' as const
 			};
 
 			await music.play(context, video, client);
@@ -135,7 +136,8 @@ const enqueueSingleQuery = async (
 					url: videoInfo.videoDetails.video_url,
 					channelTitle: videoInfo.videoDetails.author.name,
 					thumbnail: videoInfo.videoDetails.thumbnails[0]?.url || '',
-					duration: formatDuration(videoInfo.videoDetails.lengthSeconds)
+					duration: formatDuration(videoInfo.videoDetails.lengthSeconds),
+					source: 'youtube' as const
 				};
 
 				await music.play(context, video, client);

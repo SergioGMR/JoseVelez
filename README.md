@@ -9,6 +9,7 @@ A Discord music bot that searches and plays YouTube audio. Built to be stable, p
 - Slash commands to search, play, and control playback.
 - Per-guild queue with control buttons (pause, skip, stop).
 - YouTube Data API search with a non-API fallback when quota runs out.
+- SoundCloud fallback for playback when YouTube blocks streaming.
 - Optional Supabase persistence for queues.
 - Persistent search cache with a 7-day TTL (Supabase).
 - User-facing responses are in Spanish.
@@ -46,6 +47,9 @@ YTDLP_PATH=/path/to/yt-dlp_optional
 YTDLP_AUTO_DOWNLOAD=false_optional
 YTDLP_COOKIES_PATH=/path/to/cookies.txt_optional
 
+# SoundCloud (optional)
+SOUNDCLOUD_CLIENT_ID=your_client_id_optional
+
 # Supabase (optional)
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SECRET_KEY=your_secret_key
@@ -63,6 +67,7 @@ Quick notes:
 - `YTDLP_AUTO_DOWNLOAD=false` disables auto-downloading `yt-dlp`.
 - If you want to avoid Python, use the standalone `yt-dlp` binary and set `YTDLP_PATH`.
 - `YTDLP_COOKIES_PATH` lets you pass a cookies file for age-restricted or bot-checked videos.
+- If you set `SOUNDCLOUD_CLIENT_ID`, it overrides the auto-discovered client id.
 - For Supabase, use `SUPABASE_SECRET_KEY` on trusted servers. If you use `SUPABASE_PUBLISHABLE_KEY`, enable RLS and set `SUPABASE_BOT_KEY`.
 
 ## Usage
@@ -241,6 +246,11 @@ with check (
 
 - This means YouTube blocked `play-dl`/`ytdl`. Use `yt-dlp` with cookies.
 - Mount a `cookies.txt` file (Netscape format) and set `YTDLP_COOKIES_PATH`.
+
+### "YouTube blocked but SoundCloud fallback did not play"
+
+- The fallback runs a SoundCloud search using the track title and channel.
+- If it still fails, try a more specific query or provide cookies for YouTube.
 
 ### "Could not find the table 'public.search_cache'"
 

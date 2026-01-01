@@ -40,7 +40,8 @@ const searchCommand: SlashCommand = {
 					connection: null,
 					player: null,
 					searchMessage: null,
-					queueLoaded: false
+					queueLoaded: false,
+					handlingError: false
 				});
 			}
 

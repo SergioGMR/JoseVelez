@@ -83,5 +83,6 @@ export const buildFallbackVideoFromUrl = (input: string): YouTubeVideo => {
 		thumbnail: videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : '',
 		description: '',
 		duration: 'Desconocida',
+		source: 'youtube',
 	};
 };

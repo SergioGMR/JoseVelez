@@ -12,6 +12,8 @@ export interface YouTubeVideo {
     requestedBy?: string;
     requestedById?: string;
     queueItemId?: string;
+    source?: 'youtube' | 'soundcloud';
+    fallbackAttempted?: boolean;
 }
 
 export interface ServerQueue {
@@ -25,6 +27,7 @@ export interface ServerQueue {
     leaveTimeout?: NodeJS.Timeout;
     textChannelId?: string;
     queueLoaded?: boolean;
+    handlingError?: boolean;
 }
 
 export interface BotClient extends Client {
