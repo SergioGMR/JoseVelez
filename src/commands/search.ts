@@ -12,7 +12,11 @@ import type { BotClient } from '../types.js';
 import * as music from '../music.js';
 import { safeReply } from '../interaction-utils.js';
 import { ensureVoiceContext } from './helpers.js';
+import { pickBestVideo, splitQueryInput } from './play-utils.js';
 import type { SlashCommand } from './types.js';
+
+const MAX_MULTI_QUERIES = 10;
+const SEARCH_RESULTS_PER_QUERY = 5;
 
 const searchCommand: SlashCommand = {
 	data: new SlashCommandBuilder()
@@ -21,7 +25,7 @@ const searchCommand: SlashCommand = {
 		.addStringOption(option =>
 			option
 				.setName('query')
-				.setDescription('Cancion o artista a buscar')
+				.setDescription('Cancion o artista a buscar. Soporta multiples separadas por ; o ,')
 				.setRequired(true)
 		),
 	execute: async (interaction, client: BotClient) => {
@@ -31,6 +35,8 @@ const searchCommand: SlashCommand = {
 			const context = await ensureVoiceContext(interaction, client);
 			if (!context) return;
 			const query = interaction.options.getString('query', true);
+			const queries = splitQueryInput(query, MAX_MULTI_QUERIES);
+			const isMultiQuery = queries.length > 1;
 
 			if (!client.musicQueues.has(context.guildId)) {
 				client.musicQueues.set(context.guildId, {
@@ -56,6 +62,13 @@ const searchCommand: SlashCommand = {
 
 			await interaction.deferReply();
 			deferred = true;
+
+			if (isMultiQuery) {
+				const targets = queries.length ? queries : [query];
+				const result = await enqueueSearchQueries(targets, context, client);
+				await interaction.editReply(buildSummaryMessage(result, targets.length));
+				return;
+			}
 
 			const videos = await music.searchYouTube(query);
 			if (!videos.length) {
@@ -154,6 +167,57 @@ const searchCommand: SlashCommand = {
 			}
 		}
 	}
+};
+
+type MultiQueueResult = {
+	added: number;
+	failed: string[];
+};
+
+const enqueueSearchQueries = async (
+	queries: string[],
+	context: Parameters<typeof music.play>[0],
+	client: BotClient,
+): Promise<MultiQueueResult> => {
+	const result: MultiQueueResult = { added: 0, failed: [] };
+
+	for (const rawQuery of queries) {
+		const trimmed = rawQuery.trim();
+		if (!trimmed) continue;
+
+		try {
+			const results = await music.searchYouTube(trimmed, SEARCH_RESULTS_PER_QUERY);
+			if (!results.length) {
+				result.failed.push(`• "${trimmed}": sin resultados`);
+				continue;
+			}
+
+			const selected = pickBestVideo(results, trimmed) ?? results[0];
+			await music.play(context, selected, client);
+			result.added += 1;
+		} catch (error) {
+			console.error(chalk.red('Search failed for query:'), trimmed, error);
+			result.failed.push(`• "${trimmed}": error al buscar`);
+		}
+	}
+
+	return result;
+};
+
+const buildSummaryMessage = (result: MultiQueueResult, total: number): string => {
+	const lines = [`Listo. Añadidas ${result.added}/${total}.`];
+
+	if (result.failed.length) {
+		const visibleFailures = result.failed.slice(0, 5);
+		lines.push('Fallos:');
+		lines.push(...visibleFailures);
+
+		if (result.failed.length > visibleFailures.length) {
+			lines.push(`...y ${result.failed.length - visibleFailures.length} mas.`);
+		}
+	}
+
+	return lines.join('\n');
 };
 
 const truncateText = (value: string, maxLength: number): string => {

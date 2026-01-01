@@ -107,6 +107,7 @@ If you provide `YTDLP_COOKIES_PATH`, mount that file into the container too.
 ## Commands
 
 - `/buscar query:` Search YouTube and select a result.
+- `/buscar query:` For multiple queries separated by `;` or `,`, it auto-queues the best match per query.
 - `/reproducir query:` Play a YouTube URL or the first search result. You can pass multiple queries separated by `;` or `,`.
 - `/pausar`
 - `/reanudar`
