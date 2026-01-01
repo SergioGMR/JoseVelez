@@ -13,6 +13,11 @@ FROM oven/bun:1.3.5
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV YTDLP_PATH=/app/src/yt-dlp/yt-dlp
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY package.json bun.lock ./
 RUN bun install --production --frozen-lockfile

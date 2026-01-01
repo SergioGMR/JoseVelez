@@ -50,6 +50,26 @@ const ensureStdoutArgs = (args: string[]): string[] => {
 	return [...args, '-o', '-'];
 };
 
+const resolveCookiesPath = async (): Promise<string | null> => {
+	const envValue = process.env.YTDLP_COOKIES_PATH;
+	if (!envValue) return null;
+
+	const resolvedPath = path.resolve(envValue);
+	try {
+		await fs.access(resolvedPath, fsConstants.R_OK);
+		return resolvedPath;
+	} catch {
+		console.warn(`YTDLP_COOKIES_PATH was set but is not readable: ${resolvedPath}`);
+		return null;
+	}
+};
+
+const buildYtDlpArgs = async (args: string[]): Promise<string[]> => {
+	const cookiePath = await resolveCookiesPath();
+	const mergedArgs = cookiePath ? ['--cookies', cookiePath, ...args] : [...args];
+	return ensureStdoutArgs(mergedArgs);
+};
+
 const ensureBinary = async (binaryPath: string, autoDownload: boolean): Promise<void> => {
 	if (!autoDownload) return;
 
@@ -121,7 +141,7 @@ export const getYtDlpWrap = async (): Promise<YtDlpWrapInstance> => {
 
 export const spawnYtDlpStream = async (args: string[]): Promise<NodeJS.ReadableStream> => {
 	const binaryPath = await resolveBinaryPath();
-	const ytDlpArgs = ensureStdoutArgs(args);
+	const ytDlpArgs = await buildYtDlpArgs(args);
 	const ytDlpProcess = spawn(binaryPath, ytDlpArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
 
 	if (!ytDlpProcess.stdout) {

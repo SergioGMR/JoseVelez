@@ -44,6 +44,7 @@ YOUTUBE_API_KEYS=your_api_key_3,your_api_key_4_optional
 # yt-dlp (optional)
 YTDLP_PATH=/path/to/yt-dlp_optional
 YTDLP_AUTO_DOWNLOAD=false_optional
+YTDLP_COOKIES_PATH=/path/to/cookies.txt_optional
 
 # Supabase (optional)
 SUPABASE_URL=https://your-project.supabase.co
@@ -60,6 +61,7 @@ Quick notes:
 - `DISCORD_GUILD_ID` registers commands for a single guild (instant updates).
 - For global registration, set `DISCORD_REGISTER_COMMANDS=true` without `DISCORD_GUILD_ID`.
 - `YTDLP_AUTO_DOWNLOAD=false` disables auto-downloading `yt-dlp`.
+- `YTDLP_COOKIES_PATH` lets you pass a cookies file for age-restricted or bot-checked videos.
 - For Supabase, use `SUPABASE_SECRET_KEY` on trusted servers. If you use `SUPABASE_PUBLISHABLE_KEY`, enable RLS and set `SUPABASE_BOT_KEY`.
 
 ## Usage
@@ -92,6 +94,7 @@ This repo ships a Dockerfile for Bun. In Dokploy:
 3) Set environment variables: `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, and any optional keys you need.  
 
 Optional: Mount a volume for `~/.cache/discord-music-bot` if you want to persist the `yt-dlp` download.
+The Dockerfile also installs `python3` so the bundled `yt-dlp` script can run without extra setup.
 
 ## Commands
 
@@ -220,6 +223,7 @@ with check (
 - Never share `DISCORD_TOKEN` or Supabase keys. Treat them like the last slice of pizza.
 - Only direct YouTube URLs are accepted to reduce surprises.
 - If you enable `yt-dlp` auto-download, make sure you are comfortable with that behavior.
+- If you use `YTDLP_COOKIES_PATH`, treat the cookies file like a session token.
 
 ## Command registration notes
 
