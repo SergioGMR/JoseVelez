@@ -274,12 +274,6 @@ Quick manual extraction (for `mweb` GVS token):
    - `YTDLP_PLAYER_CLIENT=default,mweb`
    - `YTDLP_COOKIES_PATH=/path/to/cookies.txt`
 
-Helper script (optional):
-1) In DevTools, "Copy request payload" and save it to `payload.json`.
-2) Run:
-   - `bun scripts/extract-po-token.ts payload.json`
-3) Use the printed env values.
-
 Notes:
 - If your token already includes a prefix like `mweb.gvs+`, you can paste it as-is.
 - Tokens are short-lived; you will need to refresh them periodically.
