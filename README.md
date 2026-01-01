@@ -92,9 +92,11 @@ This repo ships a Dockerfile for Bun. In Dokploy:
 1) Create a new app from this GitHub repo.  
 2) Build uses the included `Dockerfile`.  
 3) Set environment variables: `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, and any optional keys you need.  
+4) If you update the Dockerfile, rebuild without cache to make sure the image refreshes.  
 
 Optional: Mount a volume for `~/.cache/discord-music-bot` if you want to persist the `yt-dlp` download.
 The Dockerfile also installs `python3` so the bundled `yt-dlp` script can run without extra setup.
+If you provide `YTDLP_COOKIES_PATH`, mount that file into the container too.
 
 ## Commands
 
@@ -224,6 +226,24 @@ with check (
 - Only direct YouTube URLs are accepted to reduce surprises.
 - If you enable `yt-dlp` auto-download, make sure you are comfortable with that behavior.
 - If you use `YTDLP_COOKIES_PATH`, treat the cookies file like a session token.
+
+## Troubleshooting
+
+### "yt-dlp is not available; install yt-dlp or set YTDLP_PATH"
+
+- Make sure you rebuilt the Docker image after the Dockerfile update.
+- Confirm `YTDLP_PATH=/app/src/yt-dlp/yt-dlp` is set in your container env.
+- Verify `python3` exists inside the container.
+- Check the file is executable: `ls -l /app/src/yt-dlp/yt-dlp`.
+
+### "Sign in to confirm you're not a bot"
+
+- This means YouTube blocked `play-dl`/`ytdl`. Use `yt-dlp` with cookies.
+- Mount a `cookies.txt` file (Netscape format) and set `YTDLP_COOKIES_PATH`.
+
+### "Could not find the table 'public.search_cache'"
+
+- Create the Supabase tables in the sections above, or remove Supabase env vars if you do not want persistence.
 
 ## Command registration notes
 
